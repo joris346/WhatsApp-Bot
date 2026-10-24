@@ -5,13 +5,12 @@ const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = requi
 const P = require('pino');
 const qrcode = require('qrcode-terminal');
 const { Boom } = require('@hapi/boom');
-
 console.log('=== BOT STARTET ===');
-
 async function startBot(){
  try{
   const {state, saveCreds} = await useMultiFileAuthState('./auth');
   const sock = makeWASocket({
+    version: [2, 3000, 1023223821],
     auth: state,
     logger: P({level: 'silent'}),
     browser: ['Chrome','Chrome','1.0']
@@ -27,31 +26,26 @@ async function startBot(){
     }
     if(connection === 'close'){
       const reason = new Boom(lastDisconnect?.error)?.output?.statusCode;
-      console.log('Geschlossen! Grund Code:', reason, lastDisconnect?.error?.message);
+      console.log('Geschlossen! Code:', reason);
       if(reason !== DisconnectReason.loggedOut){
-        console.log('Versuche in 5 Sek neu...');
+        console.log('Neustart in 5 Sek...');
         setTimeout(startBot, 5000);
-      } else {
-        console.log('Ausgeloggt - Auth Ordner löschen nötig');
       }
     }
     if(connection === 'open'){
-      console.log('### BOT IST VERBUNDEN!!! ###');
+      console.log('### BOT VERBUNDEN!!! ###');
     }
   });
   sock.ev.on('messages.upsert', async({messages})=>{
-    const msg=messages[0]; if(!msg.message||msg.key.fromMe) return;
-    const gid=msg.key.remoteJid; if(!gid.endsWith('@g.us')) return;
-    const txt=(msg.message.conversation||msg.message.extendedTextMessage?.text||'').trim();
+    const m=messages[0]; if(!m.message||m.key.fromMe) return;
+    const gid=m.key.remoteJid; if(!gid.endsWith('@g.us')) return;
+    const txt=(m.message.conversation||m.message.extendedTextMessage?.text||'').trim();
     if(!txt.startsWith('.')) return;
-    const cmd=txt.slice(1).split(' ')[0].toLowerCase();
-    if(cmd==='menu') await sock.sendMessage(gid,{text:'Befehle: .menu .admins .kick @user'});
+    if(txt.toLowerCase()==='.menu') await sock.sendMessage(gid,{text:'Befehle: .menu'});
   });
-  console.log('Bot wartet auf QR - bitte 20 Sek warten...');
- } catch(e){
-  console.log('FEHLER:', e);
- }
+  console.log('Bot wartet auf QR...');
+ } catch(e){ console.log('FEHLER:', e); }
 }
 startBot();
-app.get('/',(req,res)=>res.send('Bot läuft - schau in Logs'));
+app.get('/',(r,s)=>s.send('Bot laeuft'));
 app.listen(PORT,()=>console.log('Server auf '+PORT));
